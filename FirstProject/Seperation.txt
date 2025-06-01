@@ -1,0 +1,14 @@
+we have a mixed signal of "y(t) = s1(t) + s2(t) + ... + sn(t)"
+where each s is a source, (vocals, drums etc)
+and i want to recover the individual sources from just the mixture
+
+
+approaches
+Spectral subtraction: Assumes sources occupy different frequency ranges
+Blind Source Separation (BSS): Uses statistical independence assumptions
+Matrix factorization: Decomposes the spectrogram into basis functions and activations
+
+Advanced approaches:
+
+Deep learning models: Learn complex mappings from mixtures to sources
+Probabilistic models: Use probabilistic assumptions about source characteristics

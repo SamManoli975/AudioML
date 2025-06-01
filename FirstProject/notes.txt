@@ -1,0 +1,110 @@
+notes for audio machine learning and signal stuff
+
+digital audio representation:
+audio signal -> f(t)
+digital audio: f[n]
+
+
+fourier transform (foundation of everything)
+
+continuous fourier transform:
+F(ω) = ∫_{-∞}^{∞} f(t) e^{-jωt} dt
+
+discrete fourier transform:
+X[k] = Σ_{n=0}^{N-1} x[n] e^{-j2πkn/N}
+
+x[n] = your audio samples
+X[k] = frequency component k
+e^{-j2πkn/N} = complex exponential (Euler's formula)
+j = √(-1) (imaginary unit)
+
+Euler's Formula (the magic behind it all):
+e^{jθ} = cos(θ) + j·sin(θ)
+
+eulers formula: takes time-domain signal (amplitude vs time)
+converts to frequency-domain (amplitude vs frequency)
+shows how much of each frequency is present
+
+physical interpretatino:
+every sound is a sum of sine waves
+FFT finds the amplitude and phase of each sine wave
+like decomposing white light into rainbow colors
+
+
+
+
+SPECTOAGRAMS -time frequency analysis
+
+short-time fourier transform (STFT)
+STFT(m,ω) = Σ_{n=-∞}^{∞} x[n] w[n-m] e^{-jωn}
+
+Components:
+x[n] = audio signal
+w[n-m] = window function (usually Hann window)
+m = time frame index
+ω = frequency
+
+hann window math:
+w[n] = 0.5 * (1 - cos(2πn/(N-1)))
+
+why windowing?
+pure FFT assumes singla repeats forever
+real audio doesnt repeat
+window smoothly tapers signal to zero at edges
+reduces artifacts but creates time-frequency tradeoff
+
+uncertainty principle
+Δt · Δf ≥ 1/(4π)
+
+you cant have perfect time and frequency resolution
+narrow window = good time resolution, poor frequency resolution
+wide window = good frequency resolution, poor time resolution
+
+MEL Scale - how humans hear
+
+Linear to Mel Conversion
+m = 2595 * log₁₀(1 + f/700)
+
+Inverse (Mel to Linear):
+f = 700 * (10^(m/2595) - 1)
+
+human hearing is not Linear, they are more sensitive to changes at low frequencies
+100hz to 200hz sounds like bigger changes thatn 5000hz to 5100hz
+mel scale mimics human perception
+
+Mel Filter Bank:
+Create triangular filters spaced on mel scale
+Each filter captures energy in a mel-frequency band
+Typically use 26-40 mel filters
+
+
+MFCCs -  the DNA of audio
+mathematical process:
+
+Step 1: Power Spectrum
+P[k] = |X[k]|²
+
+Step 2: Apply Mel Filter Bank
+S[m] = Σ_{k=0}^{N-1} P[k] * H_m[k]
+where H_m[k] is the m-th mel filter
+
+Step 3: Logarithm
+S_log[m] = log(S[m])
+
+Step 4: Discrete Cosine Transform (DCT)
+MFCC[n] = Σ_{m=0}^{M-1} S_log[m] * cos(πn(m + 0.5)/M)
+
+
+Why each step?
+
+Power spectrum: Energy at each frequency
+Mel filtering: Human-like frequency resolution
+Logarithm: Human hearing is logarithmic (decibels)
+DCT: Decorrelates coefficients, compresses information
+
+Physical meaning:
+
+MFCC 0: Overall energy (DC component)
+MFCC 1-2: Spectral shape (vowel information)
+MFCC 3-12: Fine spectral details
+Higher MFCCs: Usually noise, often discarded
