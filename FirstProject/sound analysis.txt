@@ -1,0 +1,18 @@
+sound analysis
+
+waveform
+>frequency
+>intensity
+>tombre
+
+
+waveform can be 
+periodic or aperiodic
+
+if periodic then can be simple or complex
+
+if aperiodic then can be continuous or transient
+
+
+frequency is in hertz, is 1/period (reoccurance)
+amplitude is how high it goes
