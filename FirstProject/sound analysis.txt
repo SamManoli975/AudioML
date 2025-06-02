@@ -16,3 +16,9 @@ if aperiodic then can be continuous or transient
 
 frequency is in hertz, is 1/period (reoccurance)
 amplitude is how high it goes
+
+
+
+
+how to speed up normally, why does the pitch increase?
+how a 1d array after transform looks like when importing the audio, explain what fourier transform is
