@@ -4,7 +4,6 @@ import soundfile as sf
 import numpy as np
 import torch
 import torchaudio
-from demucs.pretrained import get_model_from_args
 from demucs.apply import apply_model
 from demucs.audio import AudioFile
 from demucs.pretrained import get_model
@@ -19,40 +18,81 @@ class AudioProcessor:
         filename = os.path.basename(input_path)
         name, ext = os.path.splitext(filename)
         output_path = os.path.join(os.path.dirname(input_path), f'processed_{name}.wav')
-        
+
         try:
             # Load audio file
             y, sr = librosa.load(input_path, sr=None)
-            
-            # Apply effects based on action
-            if action == 'speed':
-                y = self.change_speed(y, sr, params['speed'], params['pitch'])
-            if params['reverb']:
+
+            # Extract parameters with safe defaults and type conversion
+            speed = float(params.get('speed', 1.0))
+            pitch = int(params.get('pitch', 0))
+            reverb = str(params.get('reverb', 'false')).lower() == 'true'
+            echo = str(params.get('echo', 'false')).lower() == 'true'
+            separate = str(params.get('separate', 'false')).lower() == 'true'
+
+            print(f"Params -> speed: {speed}, pitch: {pitch}, reverb: {reverb}, echo: {echo}, separate: {separate}")
+
+            # Apply speed and pitch
+            if speed != 1.0 or pitch != 0:
+                y = self.change_speed_stereo(y, sr, speed, pitch)
+
+            # Apply reverb
+            if reverb:
                 y = self.add_reverb(y, sr)
-            if params['echo']:
+
+            # Apply echo
+            if echo:
                 y = self.add_echo(y, sr)
-            if params['separate']:
+
+            # Vocal separation overrides all other effects
+            if separate:
                 vocals_path = output_path.replace('.wav', '_vocals.wav')
                 self.separate_vocals(input_path, vocals_path)
                 return f'processed_{name}_vocals.wav'
-            
+
             # Save processed file
             sf.write(output_path, y, sr)
             return f'processed_{name}.wav'
-        
+
         except Exception as e:
             print(f"Error processing audio: {str(e)}")
             raise
 
+
     def change_speed(self, y, sr, speed, pitch_shift):
-        # Time stretching
-        y_stretched = librosa.effects.time_stretch(y, rate=speed)
+        # Convert to mono if stereo
+        if y.ndim > 1:
+            y = librosa.to_mono(y)
         
-        # Pitch shifting if needed
+        # Time stretch
+        if speed != 1.0:
+            y = librosa.effects.time_stretch(y, rate=speed)
+        
+        # Pitch shift
         if pitch_shift != 0:
-            y_stretched = librosa.effects.pitch_shift(y_stretched, sr=sr, n_steps=pitch_shift)
+            y = librosa.effects.pitch_shift(y, sr=sr, n_steps=pitch_shift)
+
+        return y
+    def change_speed_stereo(self, y, sr, speed, pitch_shift):
+        print(f"[DEBUG] Stereo shape: {y.shape}")
+        if y.ndim == 1:
+            return self.change_speed(y, sr, speed, pitch_shift)
         
-        return y_stretched
+        # Stretch each channel
+        left = librosa.effects.time_stretch(y[0], rate=float(speed))
+        right = librosa.effects.time_stretch(y[1], rate=float(speed))
+
+        # Match lengths
+        min_len = min(len(left), len(right))
+        left, right = left[:min_len], right[:min_len]
+
+        # Pitch shift if needed
+        if float(pitch_shift) != 0:
+            left = librosa.effects.pitch_shift(left, sr=sr, n_steps=float(pitch_shift))
+            right = librosa.effects.pitch_shift(right, sr=sr, n_steps=float(pitch_shift))
+
+        return np.vstack((left, right))
+
     
     def add_reverb(self, y, sr):
         # Simple reverb effect
