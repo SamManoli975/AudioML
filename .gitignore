@@ -1,0 +1,12 @@
+# Ignore the virtual environment
+spleeter_env/
+
+# Optional: Ignore common Python clutter
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+.env
+.venv
