@@ -1,6 +1,6 @@
 # Ignore the virtual environment
 spleeter_env/
-
+pretrained_models/
 # Optional: Ignore common Python clutter
 __pycache__/
 *.py[cod]
