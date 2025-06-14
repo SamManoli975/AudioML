@@ -4,7 +4,7 @@ import torch
 from openunmix import predict
 import soundfile as sf
 
-def separate_audio(filename, targets=['vocals', 'drums']):
+def separate_audio(filename, targets=['vocals', 'drums', 'other', 'bass']):
     # Load the audio file first
     audio, sr = sf.read(filename, always_2d=True)
     
