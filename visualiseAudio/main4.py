@@ -1,78 +1,170 @@
 import os
 import numpy as np
 import torch
-from openunmix import predict
 import soundfile as sf
-import librosa
+import streamlit as st
+from openunmix import predict
+from pydub import AudioSegment
+import io
 
-def separate_audio(filename, targets=['vocals', 'drums', 'melody']):
-    # Load the audio file first
-    audio, sr = sf.read(filename, always_2d=True)
-    
-    # Convert to torch tensor and add batch dimension
-    audio_tensor = torch.from_numpy(audio.T).float()  # (channels, samples)
-    audio_tensor = audio_tensor.unsqueeze(0)  # (batch, channels, samples)
-    
-    # Run separation for standard targets (excluding melody)
-    standard_targets = [t for t in targets if t != 'melody']
-    estimates = predict.separate(
-        audio=audio_tensor,
-        rate=sr,
-        targets=standard_targets
-    )
-    
-    # Add melody extraction if requested
-    if 'melody' in targets:
-        estimates['melody'] = extract_melody(audio, sr)
-    
-    return estimates, sr
+# Set page config
+st.set_page_config(
+    page_title="Audio Separation Studio",
+    page_icon="🎶",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-def extract_melody(audio, sr):
-    # Convert to mono for melody extraction
-    mono_audio = librosa.to_mono(audio.T)  # Transpose to (samples, channels) first
-    
-    # Extract melody frequencies using YIN algorithm
-    melody_freq = librosa.yin(
-        mono_audio,
-        fmin=librosa.note_to_hz('C2'),  # ~65 Hz
-        fmax=librosa.note_to_hz('C7'),  # ~2093 Hz
-        sr=sr,
-        frame_length=2048,
-        hop_length=512
-    )
-    
-    # Generate sine wave from frequencies
-    times = np.arange(len(mono_audio)) / sr
-    melody_audio = np.sin(2 * np.pi * melody_freq * times)
-    
-    # Convert back to stereo and normalize
-    melody_audio = np.vstack([melody_audio, melody_audio])  # Make stereo
-    melody_audio = librosa.util.normalize(melody_audio) * 0.7  # 70% volume
-    
-    return melody_audio.T  # Return in (samples, channels) format
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .stProgress > div > div > div > div {
+        background-color: #4CAF50;
+    }
+    .stAudio {
+        width: 100%;
+    }
+    .stButton>button {
+        width: 100%;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        border: 1px solid #4CAF50;
+        background-color: #4CAF50;
+        color: white;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;
+        color: white;
+        border: 1px solid #45a049;
+    }
+    .stSelectbox>div>div>div {
+        color: #4CAF50;
+    }
+    .stFileUploader>section>div>button {
+        color: white;
+        background-color: #4CAF50;
+    }
+    .stFileUploader>section>div>button:hover {
+        background-color: #45a049;
+        color: white;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+def separate_audio(filename, targets=['vocals', 'drums', 'bass', 'other']):
+    """Separate audio into different tracks using OpenUnmix"""
+    try:
+        audio, sr = sf.read(filename, always_2d=True)
+        audio_tensor = torch.from_numpy(audio.T).float()
+        audio_tensor = audio_tensor.unsqueeze(0)
+        
+        estimates = predict.separate(
+            audio=audio_tensor,
+            rate=sr,
+            targets=targets
+        )
+        return estimates, sr
+    except Exception as e:
+        st.error(f"Error during audio separation: {str(e)}")
+        return None, None
 
 def save_audio(output_dir, filename, estimates, sr):
+    """Save separated tracks to files"""
     os.makedirs(output_dir, exist_ok=True)
+    saved_files = {}
     for target, estimate in estimates.items():
         output_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(filename))[0]}_{target}.wav")
-        
-        if isinstance(estimate, torch.Tensor):
-            # Convert tensor to numpy for standard stems
-            estimate_np = estimate.squeeze(0).detach().cpu().numpy().T
-        else:
-            # Melody is already numpy array in correct format
-            estimate_np = estimate
-        
+        estimate_np = estimate.squeeze(0).detach().cpu().numpy().T
         sf.write(output_file, estimate_np, sr)
-        print(f"✅ Saved {target} track to {output_file}")
+        saved_files[target] = output_file
+    return saved_files
 
-def process_audio(filename, output_dir='output'):
-    # Separate the audio
-    estimates, sr = separate_audio(filename)
+def main():
+    st.title("🎶 Audio Separation Studio")
+    st.markdown("""
+    Separate your audio tracks (vocals, drums, bass, other) with this powerful tool.
+    Upload your audio file and customize the processing below.
+    """)
     
-    # Save the separated tracks
-    save_audio(output_dir, filename, estimates, sr)
+    # Sidebar for file upload and settings
+    with st.sidebar:
+        st.header("Settings")
+        uploaded_file = st.file_uploader("Upload Audio File", type=['mp3', 'wav', 'ogg', 'flac'])
+        
+        st.subheader("Separation Options")
+        targets = st.multiselect(
+            "Select tracks to separate",
+            ['vocals', 'drums', 'bass', 'other'],
+            default=['vocals', 'drums', 'bass', 'other']
+        )
+    
+    # Main content area
+    if uploaded_file is not None:
+        # Display original audio
+        st.subheader("Original Audio")
+        st.audio(uploaded_file)
+        
+        # Process button
+        if st.button("Separate Tracks"):
+            with st.spinner("Processing audio... This may take a few minutes depending on file size."):
+                # Create a progress bar
+                progress_bar = st.progress(0)
+                
+                # Save uploaded file temporarily
+                temp_dir = "temp_audio"
+                os.makedirs(temp_dir, exist_ok=True)
+                temp_path = os.path.join(temp_dir, uploaded_file.name)
+                
+                with open(temp_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                progress_bar.progress(20)
+                
+                # Separate audio
+                estimates, sr = separate_audio(temp_path, targets=targets)
+                
+                if estimates is not None:
+                    progress_bar.progress(60)
+                    
+                    # Save separated tracks
+                    saved_files = save_audio(temp_dir, uploaded_file.name, estimates, sr)
+                    progress_bar.progress(80)
+                    
+                    # Display and allow download of each track
+                    st.subheader("Separated Tracks")
+                    cols = st.columns(2)
+                    
+                    for i, (target, file_path) in enumerate(saved_files.items()):
+                        with cols[i % 2]:
+                            st.markdown(f"**{target.capitalize()}**")
+                            
+                            # Create in-memory file for preview and download
+                            with open(file_path, "rb") as f:
+                                audio_bytes = f.read()
+                            
+                            # Display audio player
+                            st.audio(audio_bytes)
+                            
+                            # Download button
+                            st.download_button(
+                                label=f"Download {target}",
+                                data=audio_bytes,
+                                file_name=f"{os.path.splitext(uploaded_file.name)[0]}_{target}.wav",
+                                mime="audio/wav"
+                            )
+                    
+                    progress_bar.progress(100)
+                    st.success("Audio processing complete!")
+                    
+                    # Clean up temporary files
+                    try:
+                        os.remove(temp_path)
+                        for file_path in saved_files.values():
+                            os.remove(file_path)
+                    except:
+                        pass
+                else:
+                    st.error("Failed to process the audio file.")
 
 if __name__ == '__main__':
-    filename = 'visualiseAudio/letdown.mp3'
-    process_audio(filename)
+    main()

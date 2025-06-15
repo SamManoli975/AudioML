@@ -4,7 +4,7 @@ import torch
 from openunmix import predict
 import soundfile as sf
 
-def separate_audio(filename, targets=['vocals', 'drums', 'other', 'bass']):
+def separate_audio(filename, targets=['vocals', 'drums', 'other']):
     # Load the audio file first
     audio, sr = sf.read(filename, always_2d=True)
     
@@ -40,5 +40,5 @@ def process_audio(filename, output_dir='output'):
     save_audio(output_dir, filename, estimates, sr)
 
 if __name__ == '__main__':
-    filename = 'visualiseAudio/letdown.mp3'
+    filename = 'visualiseAudio/anima.mp3'
     process_audio(filename)
