@@ -1,0 +1,4 @@
+{
+    "jupyter.kernels.overridePythonPath": true,
+    "jupyter.kernels.pythonPath": "venv\\\\Scripts\\\\python.exe"
+}
