@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FrozenLake AI Agent Visualization</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .game-area {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .grid-container {
+            flex: 1;
+        }
+
+        .info-panel {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #3498db;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 5px;
+            width: 400px;
+            height: 400px;
+            margin: 0 auto;
+            border: 3px solid #2c3e50;
+            border-radius: 10px;
+            padding: 10px;
+            background: #87CEEB;
+        }
+
+        .cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .safe {
+            background: linear-gradient(45deg, #a8e6cf, #dcedc1);
+            border: 2px solid #7bc043;
+        }
+
+        .hole {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            border: 2px solid #c44d58;
+        }
+
+        .goal {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            border: 2px solid #1a936f;
+        }
+
+        .start {
+            background: linear-gradient(45deg, #ffd93d, #ff9a3d);
+            border: 2px solid #ff6b35;
+        }
+
+        .agent {
+            background: radial-gradient(circle, #3498db, #2980b9);
+            color: white;
+            transform: scale(0.9);
+            box-shadow: 0 0 20px #3498db;
+            z-index: 10;
+        }
+
+        .agent::after {
+            content: '🤖';
+            font-size: 24px;
+        }
+
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        button {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 0 10px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-top: 4px solid #3498db;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        .path-line {
+            position: absolute;
+            background: #3498db;
+            height: 4px;
+            transform-origin: left center;
+            z-index: 5;
+        }
+
+        .q-values {
+            position: absolute;
+            bottom: 2px;
+            font-size: 8px;
+            color: #2c3e50;
+            background: rgba(255,255,255,0.8);
+            padding: 1px 3px;
+            border-radius: 3px;
+        }
+
+        @keyframes celebrate {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .celebrate {
+            animation: celebrate 0.5s ease-in-out 3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>❄️ FrozenLake AI Agent 🎮</h1>
+        
+        <div class="game-area">
+            <div class="grid-container">
+                <div class="grid" id="gameGrid">
+                    <!-- Grid will be generated by JavaScript -->
+                </div>
+                <div class="controls">
+                    <button onclick="runEpisode()">▶️ Run Episode</button>
+                    <button onclick="step()">⏭️ Next Step</button>
+                    <button onclick="resetGame()">🔄 Reset</button>
+                    <button onclick="runTraining(1000)">🎯 Train Agent</button>
+                </div>
+            </div>
+            
+            <div class="info-panel">
+                <h3>📊 Agent Information</h3>
+                <div id="agentInfo">
+                    <p><strong>Current State:</strong> <span id="currentState">0</span></p>
+                    <p><strong>Action:</strong> <span id="currentAction">-</span></p>
+                    <p><strong>Reward:</strong> <span id="currentReward">0</span></p>
+                    <p><strong>Episode:</strong> <span id="episodeCount">0</span></p>
+                    <p><strong>Total Rewards:</strong> <span id="totalRewards">0</span></p>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="successRate">0%</div>
+                        <div class="stat-label">Success Rate</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stepsTaken">0</div>
+                        <div class="stat-label">Steps Taken</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="gamesPlayed">0</div>
+                        <div class="stat-label">Games Played</div>
+                    </div>
+                </div>
+                
+                <div id="trainingProgress" style="margin-top: 20px; display: none;">
+                    <h4>🎯 Training Progress</h4>
+                    <div style="background: #ecf0f1; border-radius: 10px; height: 20px;">
+                        <div id="progressBar" style="background: linear-gradient(45deg, #3498db, #2980b9); height: 100%; width: 0%; border-radius: 10px; transition: width 0.3s ease;"></div>
+                    </div>
+                    <p id="progressText">Training: 0%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // FrozenLake environment
+        const frozenLake = {
+            grid: [
+                ['S', 'F', 'F', 'F'],
+                ['F', 'H', 'F', 'H'],
+                ['F', 'F', 'F', 'H'],
+                ['H', 'F', 'F', 'G']
+            ],
+            states: 16,
+            actions: 4, // 0: LEFT, 1: DOWN, 2: RIGHT, 3: UP
+            currentState: 0,
+            episode: 0,
+            totalRewards: 0,
+            successes: 0,
+            steps: 0
+        };
+
+        // Q-table (initialize with zeros)
+        let qTable = Array(16).fill().map(() => Array(4).fill(0));
+
+        // Initialize game
+        function initGame() {
+            createGrid();
+            updateDisplay();
+        }
+
+        // Create the game grid
+        function createGrid() {
+            const grid = document.getElementById('gameGrid');
+            grid.innerHTML = '';
+            
+            for (let i = 0; i < 4; i++) {
+                for (let j = 0; j < 4; j++) {
+                    const cell = document.createElement('div');
+                    const state = i * 4 + j;
+                    const cellType = frozenLake.grid[i][j];
+                    
+                    cell.className = `cell ${getCellClass(cellType)}`;
+                    cell.id = `cell-${state}`;
+                    cell.innerHTML = getCellContent(cellType);
+                    
+                    // Add Q-values display
+                    const qValueDisplay = document.createElement('div');
+                    qValueDisplay.className = 'q-values';
+                    qValueDisplay.id = `q-values-${state}`;
+                    cell.appendChild(qValueDisplay);
+                    
+                    grid.appendChild(cell);
+                }
+            }
+            updateQValuesDisplay();
+        }
+
+        function getCellClass(cellType) {
+            switch(cellType) {
+                case 'S': return 'start';
+                case 'F': return 'safe';
+                case 'H': return 'hole';
+                case 'G': return 'goal';
+                default: return 'safe';
+            }
+        }
+
+        function getCellContent(cellType) {
+            switch(cellType) {
+                case 'S': return '🏁';
+                case 'H': return '🕳️';
+                case 'G': return '🎯';
+                default: return '';
+            }
+        }
+
+        // Update Q-values display
+        function updateQValuesDisplay() {
+            for (let state = 0; state < 16; state++) {
+                const qDisplay = document.getElementById(`q-values-${state}`);
+                if (qDisplay) {
+                    const qValues = qTable[state];
+                    qDisplay.textContent = `Q:${qValues.map(q => q.toFixed(1)).join(',')}`;
+                }
+            }
+        }
+
+        // Run one episode
+        function runEpisode() {
+            resetGame();
+            const interval = setInterval(() => {
+                if (!step()) {
+                    clearInterval(interval);
+                    frozenLake.episode++;
+                    updateDisplay();
+                }
+            }, 800);
+        }
+
+        // Take one step
+        function step() {
+            const state = frozenLake.currentState;
+            
+            // Choose action using epsilon-greedy policy
+            const action = chooseAction(state);
+            const actionNames = ['← LEFT', '↓ DOWN', '→ RIGHT', '↑ UP'];
+            
+            // Calculate next state (simplified movement)
+            let nextState = state;
+            switch(action) {
+                case 0: nextState = state - 1; break; // Left
+                case 1: nextState = state + 4; break; // Down
+                case 2: nextState = state + 1; break; // Right
+                case 3: nextState = state - 4; break; // Up
+            }
+            
+            // Boundary check
+            if (nextState < 0 || nextState >= 16 || 
+                (action === 0 && state % 4 === 0) || // Can't move left from left edge
+                (action === 2 && state % 4 === 3) || // Can't move right from right edge
+                (action === 3 && state < 4) ||       // Can't move up from top row
+                (action === 1 && state >= 12)) {     // Can't move down from bottom row
+                nextState = state;
+            }
+            
+            // Get reward
+            const cellType = frozenLake.grid[Math.floor(nextState / 4)][nextState % 4];
+            let reward = 0;
+            let done = false;
+            
+            if (cellType === 'H') {
+                reward = 0;
+                done = true;
+            } else if (cellType === 'G') {
+                reward = 1;
+                done = true;
+                frozenLake.successes++;
+            }
+            
+            // Update Q-table (simplified Q-learning)
+            const learningRate = 0.8;
+            const discountFactor = 0.95;
+            const bestNextQ = Math.max(...qTable[nextState]);
+            qTable[state][action] = qTable[state][action] + learningRate * (
+                reward + discountFactor * bestNextQ - qTable[state][action]
+            );
+            
+            // Update state
+            frozenLake.currentState = nextState;
+            frozenLake.totalRewards += reward;
+            frozenLake.steps++;
+            
+            // Update display
+            updateDisplay();
+            updateQValuesDisplay();
+            
+            // Highlight current action
+            document.getElementById('currentAction').textContent = actionNames[action];
+            
+            if (done) {
+                if (reward === 1) {
+                    celebrateWin();
+                }
+                return false;
+            }
+            return true;
+        }
+
+        function chooseAction(state) {
+            // 90% exploitation, 10% exploration
+            if (Math.random() < 0.1) {
+                return Math.floor(Math.random() * 4);
+            } else {
+                return qTable[state].indexOf(Math.max(...qTable[state]));
+            }
+        }
+
+        function resetGame() {
+            frozenLake.currentState = 0;
+            frozenLake.steps = 0;
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            // Update agent position
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.remove('agent');
+            });
+            
+            const currentCell = document.getElementById(`cell-${frozenLake.currentState}`);
+            if (currentCell) {
+                currentCell.classList.add('agent');
+            }
+            
+            // Update info panel
+            document.getElementById('currentState').textContent = frozenLake.currentState;
+            document.getElementById('episodeCount').textContent = frozenLake.episode;
+            document.getElementById('totalRewards').textContent = frozenLake.totalRewards.toFixed(2);
+            document.getElementById('stepsTaken').textContent = frozenLake.steps;
+            document.getElementById('gamesPlayed').textContent = frozenLake.episode;
+            
+            const successRate = frozenLake.episode > 0 ? (frozenLake.successes / frozenLake.episode * 100) : 0;
+            document.getElementById('successRate').textContent = `${successRate.toFixed(1)}%`;
+        }
+
+        function celebrateWin() {
+            const goalCell = document.querySelector('.goal');
+            goalCell.classList.add('celebrate');
+            setTimeout(() => {
+                goalCell.classList.remove('celebrate');
+            }, 1500);
+        }
+
+        // Training simulation
+        function runTraining(episodes) {
+            document.getElementById('trainingProgress').style.display = 'block';
+            
+            let trained = 0;
+            const interval = setInterval(() => {
+                // Simulate training multiple episodes
+                for (let i = 0; i < 10; i++) {
+                    if (trained >= episodes) break;
+                    
+                    // Simulate Q-learning updates
+                    for (let state = 0; state < 16; state++) {
+                        for (let action = 0; action < 4; action++) {
+                            // Simulate learning progress
+                            qTable[state][action] += (Math.random() - 0.5) * 0.1;
+                        }
+                    }
+                    trained++;
+                }
+                
+                const progress = (trained / episodes) * 100;
+                document.getElementById('progressBar').style.width = `${progress}%`;
+                document.getElementById('progressText').textContent = `Training: ${Math.min(progress, 100).toFixed(1)}%`;
+                
+                updateQValuesDisplay();
+                
+                if (trained >= episodes) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        document.getElementById('trainingProgress').style.display = 'none';
+                        alert('🎉 Training completed! The AI has learned to play FrozenLake!');
+                    }, 500);
+                }
+            }, 100);
+        }
+
+        // Initialize the game when page loads
+        window.onload = initGame;
+    </script>
+</body>
+</html>
