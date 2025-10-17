@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GridWorld Q-Learning Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.8;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .grid-section, .info-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .grid-world {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin: 20px auto;
+            max-width: 400px;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            border: 2px solid #34495e;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+            transition: all 0.3s ease;
+            position: relative;
+            background: white;
+        }
+
+        .cell.start {
+            background: #3498db;
+            color: white;
+        }
+
+        .cell.goal {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .cell.obstacle {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .cell.agent {
+            background: #f39c12;
+            color: white;
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+            z-index: 10;
+        }
+
+        .q-values {
+            position: absolute;
+            font-size: 0.6em;
+            color: #7f8c8d;
+            width: 100%;
+            text-align: center;
+            bottom: 2px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background: #3498db;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        button.reset {
+            background: #e74c3c;
+        }
+
+        button.reset:hover {
+            background: #c0392b;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+
+        .log-container {
+            background: #2c3e50;
+            color: white;
+            border-radius: 8px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .log-episode {
+            background: rgba(52, 152, 219, 0.3);
+            font-weight: bold;
+        }
+
+        .log-step {
+            background: rgba(149, 165, 166, 0.2);
+        }
+
+        .log-update {
+            background: rgba(46, 204, 113, 0.2);
+        }
+
+        .log-error {
+            background: rgba(231, 76, 60, 0.2);
+        }
+
+        .parameters {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .param-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .param-value {
+            text-align: center;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .learning-progress {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            height: 10px;
+            background: #ecf0f1;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #2ecc71;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>GridWorld Q-Learning Visualizer</h1>
+            <div class="subtitle">Watch the AI learn to navigate from Start (S) to Goal (G) while avoiding obstacles (X)</div>
+        </header>
+
+        <div class="main-content">
+            <div class="grid-section">
+                <h2>Grid World</h2>
+                <div class="grid-world" id="gridWorld">
+                    <!-- Grid will be generated by JavaScript -->
+                </div>
+                
+                <div class="controls">
+                    <button id="stepBtn">Step</button>
+                    <button id="trainBtn">Train 10 Episodes</button>
+                    <button id="trainFastBtn">Train Fast (100 episodes)</button>
+                    <button id="resetBtn" class="reset">Reset Q-Table</button>
+                </div>
+
+                <div class="parameters">
+                    <div class="param-group">
+                        <label for="learningRate">Learning Rate (α)</label>
+                        <input type="range" id="learningRate" min="0.01" max="0.5" step="0.01" value="0.1">
+                        <div class="param-value" id="learningRateValue">0.10</div>
+                    </div>
+                    <div class="param-group">
+                        <label for="discountFactor">Discount Factor (γ)</label>
+                        <input type="range" id="discountFactor" min="0.5" max="0.99" step="0.01" value="0.9">
+                        <div class="param-value" id="discountFactorValue">0.90</div>
+                    </div>
+                    <div class="param-group">
+                        <label for="explorationRate">Exploration Rate (ε)</label>
+                        <input type="range" id="explorationRate" min="0.01" max="0.5" step="0.01" value="0.1">
+                        <div class="param-value" id="explorationRateValue">0.10</div>
+                    </div>
+                </div>
+
+                <div class="learning-progress">
+                    <label>Learning Progress</label>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h2>Training Information</h2>
+                
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="episodeCount">0</div>
+                        <div class="stat-label">Episodes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stepCount">0</div>
+                        <div class="stat-label">Steps in Current Episode</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="successRate">0%</div>
+                        <div class="stat-label">Success Rate</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgSteps">0</div>
+                        <div class="stat-label">Average Steps to Goal</div>
+                    </div>
+                </div>
+
+                <h3>Current Episode Log</h3>
+                <div class="log-container" id="logContainer">
+                    <div class="log-entry">Welcome! Click "Step" to begin training.</div>
+                </div>
+
+                <h3>Q-Table (Current State)</h3>
+                <div class="log-container" id="qTableContainer">
+                    <div class="log-entry">Q-values will appear here as the agent learns.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // GridWorld Environment
+        class GridWorld {
+            constructor() {
+                this.grid = [
+                    ['S', '.', '.', '.'],
+                    ['.', 'X', '.', '.'],
+                    ['.', '.', '.', 'G']
+                ];
+                this.start = [0, 0];
+                this.goal = [2, 3];
+                this.pos = [...this.start];
+                this.actions = ['up', 'down', 'left', 'right'];
+            }
+
+            reset() {
+                this.pos = [...this.start];
+                return this.pos;
+            }
+
+            step(action) {
+                let [i, j] = this.pos;
+                
+                // Move according to action
+                if (action === 'up') i -= 1;
+                else if (action === 'down') i += 1;
+                else if (action === 'left') j -= 1;
+                else if (action === 'right') j += 1;
+                
+                // Boundary / obstacle checks
+                if (i < 0 || i >= 3 || j < 0 || j >= 4 || this.grid[i][j] === 'X') {
+                    return [this.pos, -1, false]; // Hit wall or obstacle
+                } else {
+                    this.pos = [i, j];
+                    const reward = this.pos[0] === this.goal[0] && this.pos[1] === this.goal[1] ? 10 : 0;
+                    const done = reward === 10;
+                    return [this.pos, reward, done];
+                }
+            }
+
+            getState() {
+                return this.pos.join(',');
+            }
+        }
+
+        // Q-Learning Agent
+        class QLearningAgent {
+            constructor(env, alpha = 0.1, gamma = 0.9, epsilon = 0.1) {
+                this.qTable = {};
+                this.alpha = alpha;
+                this.gamma = gamma;
+                this.epsilon = epsilon;
+                this.env = env;
+            }
+
+            getQ(state, action) {
+                return this.qTable[`${state},${action}`] || 0.0;
+            }
+
+            chooseAction(state) {
+                // Exploration vs Exploitation
+                if (Math.random() < this.epsilon) {
+                    return this.env.actions[Math.floor(Math.random() * this.env.actions.length)];
+                } else {
+                    const qValues = this.env.actions.map(a => this.getQ(state, a));
+                    const maxQ = Math.max(...qValues);
+                    const bestActions = this.env.actions.filter((a, i) => qValues[i] === maxQ);
+                    return bestActions[Math.floor(Math.random() * bestActions.length)];
+                }
+            }
+
+            learn(state, action, reward, nextState, done) {
+                const oldQ = this.getQ(state, action);
+                const nextQs = this.env.actions.map(a => this.getQ(nextState, a));
+                const maxNextQ = done ? 0 : Math.max(...nextQs);
+                
+                const newQ = oldQ + this.alpha * (reward + this.gamma * maxNextQ - oldQ);
+                this.qTable[`${state},${action}`] = newQ;
+                
+                return { oldQ, newQ };
+            }
+
+            resetQTable() {
+                this.qTable = {};
+            }
+
+            getQTableForState(state) {
+                const result = {};
+                this.env.actions.forEach(action => {
+                    result[action] = this.getQ(state, action);
+                });
+                return result;
+            }
+        }
+
+        // Frontend Application
+        class QLearningApp {
+            constructor() {
+                this.env = new GridWorld();
+                this.agent = new QLearningAgent(this.env);
+                this.episodeCount = 0;
+                this.stepCount = 0;
+                this.successCount = 0;
+                this.totalSteps = 0;
+                this.isTraining = false;
+                this.currentEpisodeSteps = 0;
+                
+                this.initializeElements();
+                this.renderGrid();
+                this.setupEventListeners();
+                this.updateDisplay();
+            }
+
+            initializeElements() {
+                this.gridElement = document.getElementById('gridWorld');
+                this.logContainer = document.getElementById('logContainer');
+                this.qTableContainer = document.getElementById('qTableContainer');
+                this.episodeCountElement = document.getElementById('episodeCount');
+                this.stepCountElement = document.getElementById('stepCount');
+                this.successRateElement = document.getElementById('successRate');
+                this.avgStepsElement = document.getElementById('avgSteps');
+                this.progressFill = document.getElementById('progressFill');
+                
+                // Control buttons
+                this.stepBtn = document.getElementById('stepBtn');
+                this.trainBtn = document.getElementById('trainBtn');
+                this.trainFastBtn = document.getElementById('trainFastBtn');
+                this.resetBtn = document.getElementById('resetBtn');
+                
+                // Parameter sliders
+                this.learningRateSlider = document.getElementById('learningRate');
+                this.discountFactorSlider = document.getElementById('discountFactor');
+                this.explorationRateSlider = document.getElementById('explorationRate');
+                
+                this.learningRateValue = document.getElementById('learningRateValue');
+                this.discountFactorValue = document.getElementById('discountFactorValue');
+                this.explorationRateValue = document.getElementById('explorationRateValue');
+            }
+
+            setupEventListeners() {
+                this.stepBtn.addEventListener('click', () => this.runStep());
+                this.trainBtn.addEventListener('click', () => this.trainEpisodes(10));
+                this.trainFastBtn.addEventListener('click', () => this.trainEpisodes(100));
+                this.resetBtn.addEventListener('click', () => this.resetTraining());
+                
+                // Parameter sliders
+                this.learningRateSlider.addEventListener('input', (e) => {
+                    this.agent.alpha = parseFloat(e.target.value);
+                    this.learningRateValue.textContent = this.agent.alpha.toFixed(2);
+                });
+                
+                this.discountFactorSlider.addEventListener('input', (e) => {
+                    this.agent.gamma = parseFloat(e.target.value);
+                    this.discountFactorValue.textContent = this.agent.gamma.toFixed(2);
+                });
+                
+                this.explorationRateSlider.addEventListener('input', (e) => {
+                    this.agent.epsilon = parseFloat(e.target.value);
+                    this.explorationRateValue.textContent = this.agent.epsilon.toFixed(2);
+                });
+            }
+
+            renderGrid() {
+                this.gridElement.innerHTML = '';
+                
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        const cellType = this.env.grid[i][j];
+                        
+                        if (cellType === 'S') cell.classList.add('start');
+                        if (cellType === 'G') cell.classList.add('goal');
+                        if (cellType === 'X') cell.classList.add('obstacle');
+                        
+                        // Check if agent is in this cell
+                        if (i === this.env.pos[0] && j === this.env.pos[1]) {
+                            cell.classList.add('agent');
+                            cell.textContent = '🤖';
+                        } else {
+                            cell.textContent = cellType;
+                        }
+                        
+                        // Add Q-values display
+                        const state = `${i},${j}`;
+                        const qValues = this.agent.getQTableForState(state);
+                        const qValuesText = Object.entries(qValues)
+                            .map(([action, value]) => `${action}: ${value.toFixed(2)}`)
+                            .join(' | ');
+                        
+                        const qValueElement = document.createElement('div');
+                        qValueElement.className = 'q-values';
+                        qValueElement.textContent = qValuesText;
+                        cell.appendChild(qValueElement);
+                        
+                        this.gridElement.appendChild(cell);
+                    }
+                }
+            }
+
+            addLog(message, type = 'step') {
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry log-${type}`;
+                logEntry.textContent = message;
+                this.logContainer.appendChild(logEntry);
+                this.logContainer.scrollTop = this.logContainer.scrollHeight;
+            }
+
+            updateQTableDisplay() {
+                const currentState = this.env.getState();
+                const qValues = this.agent.getQTableForState(currentState);
+                
+                this.qTableContainer.innerHTML = '';
+                
+                Object.entries(qValues).forEach(([action, value]) => {
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry';
+                    entry.textContent = `Q(${currentState}, ${action}) = ${value.toFixed(3)}`;
+                    this.qTableContainer.appendChild(entry);
+                });
+            }
+
+            updateStats() {
+                this.episodeCountElement.textContent = this.episodeCount;
+                this.stepCountElement.textContent = this.currentEpisodeSteps;
+                
+                const successRate = this.episodeCount > 0 ? 
+                    (this.successCount / this.episodeCount * 100).toFixed(1) : 0;
+                this.successRateElement.textContent = `${successRate}%`;
+                
+                const avgSteps = this.successCount > 0 ? 
+                    (this.totalSteps / this.successCount).toFixed(1) : 0;
+                this.avgStepsElement.textContent = avgSteps;
+                
+                // Update progress bar (simplified - based on success rate)
+                this.progressFill.style.width = `${Math.min(successRate, 100)}%`;
+            }
+
+            async runStep() {
+                if (this.isTraining) return;
+                
+                const state = this.env.getState();
+                const action = this.agent.chooseAction(state);
+                const [nextState, reward, done] = this.env.step(action);
+                
+                this.addLog(`Step ${this.currentEpisodeSteps + 1}: ${state} → ${action} → ${nextState.join(',')} | Reward: ${reward}`, 'step');
+                
+                const learningResult = this.agent.learn(state, action, reward, nextState.join(','), done);
+                this.addLog(`Q-update: ${state},${action} ${learningResult.oldQ.toFixed(3)} → ${learningResult.newQ.toFixed(3)}`, 'update');
+                
+                this.currentEpisodeSteps++;
+                
+                if (done) {
+                    this.episodeCount++;
+                    this.successCount++;
+                    this.totalSteps += this.currentEpisodeSteps;
+                    this.addLog(`🎯 Episode ${this.episodeCount} completed in ${this.currentEpisodeSteps} steps!`, 'episode');
+                    this.currentEpisodeSteps = 0;
+                    this.env.reset();
+                }
+                
+                this.renderGrid();
+                this.updateQTableDisplay();
+                this.updateStats();
+            }
+
+            async trainEpisodes(numEpisodes) {
+                if (this.isTraining) return;
+                
+                this.isTraining = true;
+                this.stepBtn.disabled = true;
+                this.trainBtn.disabled = true;
+                this.trainFastBtn.disabled = true;
+                
+                const startEpisode = this.episodeCount;
+                
+                for (let i = 0; i < numEpisodes; i++) {
+                    this.env.reset();
+                    let done = false;
+                    let steps = 0;
+                    const maxSteps = 50;
+                    
+                    while (!done && steps < maxSteps) {
+                        const state = this.env.getState();
+                        const action = this.agent.chooseAction(state);
+                        const [nextState, reward, done] = this.env.step(action);
+                        this.agent.learn(state, action, reward, nextState.join(','), done);
+                        steps++;
+                        
+                        if (done) {
+                            this.episodeCount++;
+                            this.successCount++;
+                            this.totalSteps += steps;
+                        }
+                    }
+                    
+                    if (steps >= maxSteps) {
+                        this.episodeCount++;
+                    }
+                    
+                    // Update display every 10 episodes for performance
+                    if (i % 10 === 0 || i === numEpisodes - 1) {
+                        this.renderGrid();
+                        this.updateStats();
+                        this.addLog(`Trained ${this.episodeCount - startEpisode} episodes...`, 'episode');
+                        await this.delay(10); // Small delay to allow UI update
+                    }
+                }
+                
+                this.addLog(`Training completed! Success rate: ${(this.successCount / this.episodeCount * 100).toFixed(1)}%`, 'episode');
+                this.renderGrid();
+                this.updateStats();
+                
+                this.isTraining = false;
+                this.stepBtn.disabled = false;
+                this.trainBtn.disabled = false;
+                this.trainFastBtn.disabled = false;
+            }
+
+            resetTraining() {
+                this.agent.resetQTable();
+                this.env.reset();
+                this.episodeCount = 0;
+                this.successCount = 0;
+                this.totalSteps = 0;
+                this.currentEpisodeSteps = 0;
+                this.logContainer.innerHTML = '<div class="log-entry">Q-Table reset. Ready for new training session.</div>';
+                this.qTableContainer.innerHTML = '<div class="log-entry">Q-values will appear here as the agent learns.</div>';
+                this.renderGrid();
+                this.updateStats();
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            updateDisplay() {
+                this.renderGrid();
+                this.updateStats();
+                this.updateQTableDisplay();
+            }
+        }
+
+        // Initialize the application when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new QLearningApp();
+        });
+    </script>
+</body>
+</html>
